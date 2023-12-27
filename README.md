@@ -1,1 +1,1 @@
-Different mathematical approximation methods implemented in rust.
+Implementing various numerical methods for mathematical approximations in rust.
