@@ -1,26 +1,42 @@
+// Newton's Method: given a function y(x) and dydx and some starting x0; approximate the value x'
+// such that y(x') = 0 (zero-finding algorithm)
+fn newton(xinit: f64, n: usize, tolerance: f64, f: impl Fn(f64) -> f64, dfdx: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut xi = xinit;
+  for i in 1..(n+1) {
+    xi = xi - f(xi)/dfdx(xi);
+    if logging {
+      println!("-> i = {}; xi = {}; f(xi) = {}; error = {}", i, xi, f(xi), f(xi).abs()-tolerance);
+    }
+  }
+  if f(xi).abs() < tolerance {
+    println!("\nnewton(): xinit = {}; xi = {}; f(xi) = {}", xinit, xi, f(xi));
+    xi
+  } else {
+    println!("\nnewton(): Could not find an xi such that f(xi) = 0 within desired tolerance of {}", tolerance);
+    f64::MAX
+  }
+}
 // START FROM CHATGPT
-fn newton_raphson<F>(mut f: F, mut x0: f64) -> f64
+fn newton_raphson<F>(maxiters: usize, tolerance: f64, mut f: F, mut x0: f64) -> f64
 where
     F: FnMut(f64) -> f64,
 {
-    const MAX_ITER: usize = 100;
-    const TOLERANCE: f64 = 1e-10;
-    for _ in 0..MAX_ITER {
+    for _ in 0..maxiters {
         let f_x0 = f(x0);
-        if f_x0.abs() < TOLERANCE {
+        if f_x0.abs() < tolerance {
             return x0;
         }
-        let df_x0 = (f(x0 + TOLERANCE) - f_x0) / TOLERANCE;
+        let df_x0 = (f(x0 + tolerance) - f_x0) / tolerance;
         x0 = x0 - f_x0 / df_x0;
     }
     x0
 }
-fn backward_euler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, solution: impl Fn(f64) -> f64, logging: bool) -> f64 {
+fn backward_euler_known(n: usize, initval: f64, tfinal: f64, maxiters: usize, tolerance: f64, dydt: impl Fn(f64, f64) -> f64, solution: impl Fn(f64) -> f64, logging: bool) -> f64 {
     let k = tfinal / n as f64;
     let mut t = 0.0;
     let mut y = initval;
     for i in 0..n {
-        let next_y = newton_raphson(|x| y + k*dydt(t+k, x) - x, y);
+        let next_y = newton_raphson(maxiters, tolerance, |x| y + k*dydt(t+k, x) - x, y);
         y = next_y;
         if logging {
           println!("-> i = {}; t = {}; Estimated y(t) = {}; solution(t) = {}", i, t, y, solution(t));
@@ -31,12 +47,12 @@ fn backward_euler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, 
     y
 }
 // Backward Euler: Yn+1 = Yn + k*f(tn+1, Yn+1) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
-fn backward_euler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
+fn backward_euler(n: usize, initval: f64, tfinal: f64, maxiters: usize, tolerance: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
     let k = tfinal / n as f64;
     let mut t = 0.0;
     let mut y = initval;
     for i in 0..n {
-        let next_y = newton_raphson(|x| y + k*dydt(t+k, x) - x, y);
+        let next_y = newton_raphson(maxiters, tolerance, |x| y + k*dydt(t+k, x) - x, y);
         y = next_y;
         if logging {
           println!("-> i = {}; t = {}; Estimated y(t) = {}", i, t, y);
@@ -56,7 +72,6 @@ fn forward_euler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f
   let mut err: Vec<f64> = vec![0.0; n+1];
   yn[0] = initval;
   sln[0] = initval;
-  println!("forward_euler_known(): BEFORE ITERATING: k = {}; tn[0] = 0.0; yn[0] = 0.0; solution[0] = 0.0; err[0] = 0.0\n", k);
   for i in 0..(n) {
     tn[i+1] = (i as f64)*k;
     let dydtval = dydt(tn[i], yn[i]);
@@ -76,7 +91,6 @@ fn forward_euler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) ->
   let mut tn: Vec<f64> = vec![0.0; n+1];
   let mut yn: Vec<f64> = vec![0.0; n+1];
   yn[0] = initval;
-  println!("forward_euler(): BEFORE ITERATING: k = {}; tn[0] = 0.0; yn[0] = 0.0\n", k);
   for i in 0..(n) {
     tn[i+1] = (i as f64)*k;
     let dydtval = dydt(tn[i], tn[i]);
@@ -103,7 +117,18 @@ fn main() {
   };
   let fe = forward_euler(n, initval, tfinal, dydt, true);
   let fek = forward_euler_known(n, initval, tfinal, dydt, yt, true);
-  let be = backward_euler(n, initval, tfinal, dydt, true);
-  let bek = backward_euler_known(n, initval, tfinal, dydt, yt, true);
+  let tolerance = 1e-12;
+  let be = backward_euler(n, initval, tfinal, n, tolerance, dydt, true);
+  let bek = backward_euler_known(n, initval, tfinal, n, tolerance, dydt, yt, true);
   println!("* Forward Euler trials:\n\n-> {} and {} (known)\n\n* Backward Euler trials:\n\n-> {} and {} (known)\n\n* Expected Solution = {}", fe, fek, be, bek, yt(tfinal));
+  let fx = |x: f64| -> f64 {
+    x.exp() - (x*x) + (3.0*x) - 2.0
+  };
+  let dfdx = |x: f64| -> f64 {
+    x.exp() - (2.0*x) + 3.0
+  };
+  let xinit = -0.5;
+  let xend = newton(xinit, n, tolerance, fx, dfdx, true);
+  let result = fx(xend);
+  println!("* Newton Method Trial:\n\n-> xinit = {}; xend = {}; f(xend) = {}; error = {}; tolerance = {}", xinit, xend, result, tolerance-result.abs(), tolerance);
 }
