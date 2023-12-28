@@ -43,7 +43,7 @@ fn backward_euler_known(n: usize, initval: f64, tfinal: f64, maxiters: usize, to
         }
         t += k;
     }
-    println!("\nbackward_euler_known(): Estimated y[tfinal] = {}; solution(tfinal)= {}; err = {}\n", y, solution(tfinal), (solution(tfinal)-y).abs());
+    println!("backward_euler_known(): Estimated y[tfinal] = {}; solution(tfinal)= {}; err = {}", y, solution(tfinal), (solution(tfinal)-y).abs());
     y
 }
 // Backward Euler: Yn+1 = Yn + k*f(tn+1, Yn+1) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
@@ -59,11 +59,51 @@ fn backward_euler(n: usize, initval: f64, tfinal: f64, maxiters: usize, toleranc
         }
         t += k;
     }
-    println!("\nbackward_euler(): Estimated y[tfinal] = {}\n", y);
+    println!("backward_euler(): Estimated y[tfinal] = {}", y);
     y
 }
 // END FROM CHATGPT
-// Forward Euler: Yn = Yn + k*f(tn, Yn) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
+fn modified_euler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
+  let h = tfinal/(n as f64);
+  let mut tn: Vec<f64> = vec![0.0; n+1];
+  let mut yn: Vec<f64> = vec![0.0; n+1];
+  yn[0] = initval;
+  for i in 0..n {
+    tn[i+1] = (i as f64)*h;
+    let k1 = dydt(tn[i], yn[i]);
+    let k2 = dydt(tn[i] + h, yn[i] + h*dydt(tn[i], yn[i]));
+    yn[i+1] = yn[i] + (h/2.0)*(k1+k2);
+    if logging {
+      println!("-> i = {};  tn[{}] = {}; yn[{}] = {}", i, i+1, tn[i+1], i+1, yn[i+1]);
+    }
+  }
+  println!("modified_euler(): POST ITERATION RESULT: h = {}; tn[{}] = {}; yn[{}] = {}", h, n-1, tn[n-1], n-1, yn[n-1]);
+  yn[n]
+}
+// Modified Euler: Yn+1 = Yn + k/2 * (f(tn,Yn) + f(tn + k, Yn + k*f(tn,Yn))) 
+fn modified_euler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, y: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let h = tfinal/(n as f64);
+  let mut tn: Vec<f64> = vec![0.0; n+1];
+  let mut yn: Vec<f64> = vec![0.0; n+1];
+  let mut sln: Vec<f64> = vec![0.0; n+1];
+  let mut err: Vec<f64> = vec![0.0; n+1];
+  yn[0] = initval;
+  sln[0] = initval;
+  for i in 0..n {
+    tn[i+1] = (i as f64)*h;
+    let k1 = dydt(tn[i], yn[i]);
+    let k2 = dydt(tn[i] + h, yn[i] + h*dydt(tn[i], yn[i]));
+    yn[i+1] = yn[i] + (h/2.0)*(k1+k2);
+    sln[i+1] = y(tn[i+1]);
+    err[i+1] = (sln[i+1]-yn[i+1]).abs();
+    if logging {
+      println!("-> i = {}; tn[{}] = {}; yn[{}] = {}; sln[{}] = {}; err[{}] = {}", i, i+1, tn[i+1], i+1, yn[i+1], i+1, sln[i+1], i+1, err[i+1]);
+    }
+  }
+  println!("modified_euler_known(): POST ITERATION RESULT: h = {}; tn[{}] = {}; yn[{}] = {}; sln[{}] = {}; err[{}] = {}", h, n-1, tn[n-1], n-1, yn[n-1], n-1, sln[n-1], n-1, err[n-1]);
+  yn[n]
+}
+// Forward Euler: Yn+1 = Yn + k*f(tn, Yn) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
 fn forward_euler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, y: impl Fn(f64) -> f64, logging: bool) -> f64 {
   let k = tfinal/(n as f64);
   let mut tn: Vec<f64> = vec![0.0; n+1];
@@ -72,7 +112,7 @@ fn forward_euler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f
   let mut err: Vec<f64> = vec![0.0; n+1];
   yn[0] = initval;
   sln[0] = initval;
-  for i in 0..(n) {
+  for i in 0..n {
     tn[i+1] = (i as f64)*k;
     let dydtval = dydt(tn[i], yn[i]);
     yn[i+1] = yn[i] + k*dydtval;
@@ -91,9 +131,9 @@ fn forward_euler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) ->
   let mut tn: Vec<f64> = vec![0.0; n+1];
   let mut yn: Vec<f64> = vec![0.0; n+1];
   yn[0] = initval;
-  for i in 0..(n) {
+  for i in 0..n {
     tn[i+1] = (i as f64)*k;
-    let dydtval = dydt(tn[i], tn[i]);
+    let dydtval = dydt(tn[i], yn[i]);
     yn[i+1] = yn[i] + k*dydtval;
     if logging {
       println!("-> i = {}; dydt(tn[{}], yn[{}]) = {}; tn[{}] = {}; yn[{}] = {}", i, i, i, dydtval, i+1, tn[i+1], i+1, yn[i+1]);
@@ -106,7 +146,8 @@ fn forward_euler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) ->
 fn main() {
   // Example Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(0) = 0
   //  -> the exact solution to this ODE/IVP is y(t) = e^(-t) * sin(2t)
-  let n = 100;
+  let n = 1000;
+  println!("\nmain(): n = {}\n", n);
   let initval = 0.0;
   let tfinal = 1.0;
   let dydt = |t: f64, y: f64| -> f64 {
@@ -115,12 +156,14 @@ fn main() {
   let yt = |t: f64| -> f64 {
     (-1.0*t).exp() * (2.0*t).sin()
   };
-  let fe = forward_euler(n, initval, tfinal, dydt, true);
-  let fek = forward_euler_known(n, initval, tfinal, dydt, yt, true);
-  let tolerance = 1e-12;
-  let be = backward_euler(n, initval, tfinal, n, tolerance, dydt, true);
-  let bek = backward_euler_known(n, initval, tfinal, n, tolerance, dydt, yt, true);
-  println!("* Forward Euler trials:\n\n-> {} and {} (known)\n\n* Backward Euler trials:\n\n-> {} and {} (known)\n\n* Expected Solution = {}", fe, fek, be, bek, yt(tfinal));
+  let fe = forward_euler(n, initval, tfinal, dydt, false);
+  let fek = forward_euler_known(n, initval, tfinal, dydt, yt, false);
+  let me = modified_euler(n, initval, tfinal, dydt, false);
+  let mek = modified_euler_known(n, initval, tfinal, dydt, yt, false);
+  let tolerance = 1e-10;
+  let be = backward_euler(n, initval, tfinal, n, tolerance, dydt, false);
+  let bek = backward_euler_known(n, initval, tfinal, n, tolerance, dydt, yt, false);
+  println!("\n* Forward Euler trials:\n\n > {} and {} (known)\n\n* Backward Euler trials:\n\n > {} and {} (known)\n\n* Modified Euler trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}", fe, fek, be, bek, me, mek, yt(tfinal));
   let fx = |x: f64| -> f64 {
     x.exp() - (x*x) + (3.0*x) - 2.0
   };
@@ -128,7 +171,7 @@ fn main() {
     x.exp() - (2.0*x) + 3.0
   };
   let xinit = -0.5;
-  let xend = newton(xinit, n, tolerance, fx, dfdx, true);
+  let xend = newton(xinit, n, tolerance, fx, dfdx, false);
   let result = fx(xend);
-  println!("* Newton Method Trial:\n\n-> xinit = {}; xend = {}; f(xend) = {}; error = {}; tolerance = {}", xinit, xend, result, tolerance-result.abs(), tolerance);
+  println!("\n* Newton Method Trial:\n\n > xinit = {}/n/n=> xend = {}; f(xend) = {}; error = {}; tolerance = {}", xinit, xend, result, tolerance-result.abs(), tolerance);
 }
