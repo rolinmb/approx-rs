@@ -327,7 +327,8 @@ fn main() {
   let rkf = rkfour(n, initval, tfinal, dydt, false);
   let rkfe = rkfour_known(n, initval, tfinal , dydt, yt, false);
   println!("\n* Runge-Kutta (4) trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}; error = {}", rkf, rkfe, yt(tfinal), (yt(tfinal)).abs());
-  let bfd = backfinitediff(1, 0.5, xinit, fx, false);
-  let bfde = backfinitediff_known(1, 0.5, xinit, fx, dfdx, false);
+  let step = 0.5;
+  let bfd = backfinitediff(1, step, xinit, fx, false);
+  let bfde = backfinitediff_known(1, step, xinit, fx, dfdx, false);
   println!("\n* Backwards Finite Difference trials:\n\n > {} and {} (known); xinit = {}; Expected Solution = df(xinit) = {}; Error = {}\n", bfd, bfde, xinit, dfdx(xinit), (dfdx(xinit)-bfd).abs());
 }
