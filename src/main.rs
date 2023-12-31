@@ -34,7 +34,7 @@ where
     }
     x0
 }
-// Backward Euler: Yn+1 = Yn + k*f(tn+1, Yn+1) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
+// Backward Euler's Method: Yn+1 = Yn + k*f(tn+1, Yn+1) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
 fn backwardeuler(n: usize, initval: f64, tfinal: f64, maxiters: usize, tolerance: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
   let k = tfinal / n as f64;
   let mut t = 0.0;
@@ -70,7 +70,7 @@ fn backwardeuler_known(n: usize, initval: f64, tfinal: f64, maxiters: usize, tol
     y
 }
 // END FROM CHATGPT
-// Forward Euler: Yn+1 = Yn + k*f(tn, Yn) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
+// Forward Euler's Method: Yn+1 = Yn + k*f(tn, Yn) where f(t,y) = dy/dt for some y(t) and we know Y0 = initval
 fn forwardeuler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
   let k = tfinal/(n as f64);
   let mut tn: Vec<f64> = vec![0.0; n+1];
@@ -115,7 +115,7 @@ fn forwardeuler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f6
   }
   yn[n]
 }
-// Modified Euler: Yn+1 = Yn + k/2 * (f(tn,Yn) + f(tn + k, Yn + k*f(tn,Yn))) 
+// Modified Euler's Method (Heun's Method): Yn+1 = Yn + k/2 * (f(tn,Yn) + f(tn + k, Yn + k*f(tn,Yn))) 
 fn modifiedeuler(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
   let h = tfinal/(n as f64);
   let mut tn: Vec<f64> = vec![0.0; n+1];
@@ -223,6 +223,73 @@ fn rkfour_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> 
   yn[n-1]
 }
 
+/*fn frwdfinitediff() -> f64 {
+
+}
+
+fn cntrfinitefiff() -> f64 {
+
+}*/
+
+fn lnfactorial(n: usize) -> f64 {
+	if n == 0 {
+		return 0.0;
+	}
+	let mut result = 0.0;
+	for i in 1..n+1 {
+		result += (i as f64).log(std::f64::consts::E);
+	}
+	result
+}
+
+/*fn binomialcoefficient(n: u32, k u32) -> f64 {
+	(lnfactorial(n) - lnfactorial(k) - lnfactorial(n-k)).exp()
+}*/
+
+// Backwards Finite Difference (with unit spacing i.e. h = 1.0)
+// for approximating the n-th order derivative at current date/time (minimum order of 1; maximum order of len(data) - 1)
+fn backfinitediff(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut ord = order;
+  if order < 1 {
+    print!("\nbackfinitediff(): Order is less than 1 (order = {}); defaulting to order = 1\n", order);
+    ord = 1;
+  }
+  let mut est = 0.0;
+  for i in 0..=ord {
+    let fi = i as f64;
+    let coef = f64::powf(-1.0, fi) * (lnfactorial(ord) * lnfactorial(i) * lnfactorial(ord-i)).exp();
+		est += coef * f(xinit - fi*h);
+    if logging {
+      print!("-> i = {}; f(xinit-{}*h) = {}; est = {}", i, i, f(xinit-fi*h), est);
+    } 
+  }
+  if logging {
+    print!("\nbackfinitediff(): POST ITERATION RESULT: order = {}, h = {}, xinit = {}, est = {}\n", order, h, xinit, est);
+  }
+  est / f64::powf(h, ord as f64)
+}
+
+fn backfinitediff_known(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, df: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut ord = order;
+  if order < 1 {
+    print!("\nbackfinitediff_known(): Order is less than 1 (order = {}); defaulting to order = 1\n", order);
+    ord = 1;
+  }
+  let mut est = 0.0;
+  for i in 0..=ord {
+    let fi = i as f64;
+    let coef = f64::powf(-1.0, fi) * (lnfactorial(ord) * lnfactorial(i) * lnfactorial(ord-i)).exp();
+		est += coef * f(xinit-fi*h);
+    if logging {
+      print!("-> i = {}; f(xinit-{}*h) = {}; est = {}; df(xinit-{}*h) = {}; err = {}", i, i, f(xinit-fi*h), est, i, df(xinit-fi*h), (df(xinit-fi*h)-est).abs());
+    }  
+  }
+  if logging {
+    print!("\nbackfinitediff_known(): \n");
+  }
+  est / f64::powf(h, ord as f64)
+}
+
 fn main() {
   // Example Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(0) = 0
   //  -> the exact solution to this ODE/IVP is y(t) = e^(-t) * sin(2t)
@@ -246,18 +313,21 @@ fn main() {
   let xinit = -0.5;
   let nrend = newton(xinit, n, tolerance, fx, dfdx, false);
   let nresult = fx(nrend);
-  println!("\n* Newton Method trial:\n\n > xinit = {}\n\n=> nrend = {}; f(nrend) = {}; error = {}; tolerance = {}", xinit, nrend, nresult, tolerance-nresult.abs(), tolerance);
+  println!("\n* Newton Method trial:\n\n > xinit = {}\n\n=> nrend = {}; f(nrend) = {}; error = {}; tolerance = {}", xinit, nrend, nresult, (tolerance-nresult).abs(), tolerance);
   let nrrend = newtonraphson(n, tolerance, fx, xinit);
   let nrresult = fx(nrrend);
-  println!("\n* Newton-Raphson Method trial:\n\n > xinit = {}\n\n=> nrrend = {}; f(nrrend) = {}; error = {}; tolerance = {}\n", xinit, nrrend, nrresult, tolerance-nrresult.abs(), tolerance);
+  println!("\n* Newton-Raphson Method trial:\n\n > xinit = {}\n\n=> nrrend = {}; f(nrrend) = {}; error = {}; tolerance = {}\n", xinit, nrrend, nrresult, (tolerance-nrresult).abs(), tolerance);
   let fe = forwardeuler(n, initval, tfinal, dydt, false);
   let fek = forwardeuler_known(n, initval, tfinal, dydt, yt, false);
   let me = modifiedeuler(n, initval, tfinal, dydt, false);
   let mek = modifiedeuler_known(n, initval, tfinal, dydt, yt, false);
   let be = backwardeuler(n, initval, tfinal, n, tolerance, dydt, false);
   let bek = backwardeuler_known(n, initval, tfinal, n, tolerance, dydt, yt, false);
-  println!("\n* Forward Euler Method trials:\n\n > {} and {} (known)\n\n* Backward Euler Method trials:\n\n > {} and {} (known)\n\n* Modified Euler Method trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}", fe, fek, be, bek, me, mek, yt(tfinal));
+  println!("* Forward Euler Method trials:\n\n > {} and {} (known)\n\n* Backward Euler Method trials:\n\n > {} and {} (known)\n\n* Modified Euler Method trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}", fe, fek, be, bek, me, mek, yt(tfinal));
   let rkf = rkfour(n, initval, tfinal, dydt, false);
   let rkfe = rkfour_known(n, initval, tfinal , dydt, yt, false);
-  println!("\n* Runge-Kutta (4) trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}; error = {}", rkf, rkfe, yt(tfinal), (yt(tfinal)).abs());  
+  println!("\n* Runge-Kutta (4) trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}; error = {}", rkf, rkfe, yt(tfinal), (yt(tfinal)).abs());
+  let bfd = backfinitediff(1, 0.5, xinit, fx, false);
+  let bfde = backfinitediff_known(1, 0.5, xinit, fx, dfdx, false);
+  println!("\n* Backwards Finite Difference trials:\n\n > {} and {} (known); xinit = {}; Expected Solution = df(xinit) = {}; Error = {}\n", bfd, bfde, xinit, dfdx(xinit), (dfdx(xinit)-bfd).abs());
 }
