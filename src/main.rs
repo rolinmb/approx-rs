@@ -223,18 +223,8 @@ fn rkfour_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> 
   yn[n-1]
 }
 
-/*fn frwdfinitediff() -> f64 {
-
-}
-
-fn cntrfinitefiff() -> f64 {
-
-}*/
-
 fn lnfactorial(n: usize) -> f64 {
-	if n == 0 {
-		return 0.0;
-	}
+	if n == 0 { return 0.0; }
 	let mut result = 0.0;
 	for i in 1..n+1 {
 		result += (i as f64).log(std::f64::consts::E);
@@ -242,12 +232,93 @@ fn lnfactorial(n: usize) -> f64 {
 	result
 }
 
-/*fn binomialcoefficient(n: u32, k u32) -> f64 {
-	(lnfactorial(n) - lnfactorial(k) - lnfactorial(n-k)).exp()
-}*/
+// Forward Finite Difference for approximation of desired order (nth) derivative evaluated at some point xinit
+fn forwardfinitediff(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut ord = order;
+  if order < 1 {
+    println!("\nforwardfinitediff(): Order is less than 1 (order = {}); defaulting to order = 1\n", order);
+    ord = 1;
+  }
+  let mut est = 0.0;
+  for i in 0..=ord {
+    let fi = i as f64;
+    let coef = lnfactorial(ord) / (lnfactorial(i) * lnfactorial(ord - i)).exp();
+    est += coef * f(xinit + fi * h);
+    if logging {
+      println!("-> i = {}; f(xinit+{}*h) = {}; est = {}", i, i, f(xinit+fi*h), est);
+    }
+  }
+  if logging {
+    println!("\ncentralfinitediff(): POST ITERATION RESULT: order = {}, h = {}, xinit = {}, est = {}\n", order, h, xinit, est);
+  }
+  est / f64::powf(h, ord as f64)
+}
 
-// Backwards Finite Difference (with unit spacing i.e. h = 1.0)
-// for approximating the n-th order derivative at current date/time (minimum order of 1; maximum order of len(data) - 1)
+fn forwardfinitediff_known(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, df: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut ord = order;
+  if order < 1 {
+    println!("\nforwardfinitediff_known(): Order is less than 1 (order = {}); defaulting to order = 1\n", order);
+    ord = 1;
+  }
+  let mut est = 0.0;
+  for i in 0..=ord {
+    let fi = i as f64;
+    let coef = lnfactorial(ord) / (lnfactorial(i) * lnfactorial(ord - i)).exp();
+    est += coef * f(xinit + fi * h);
+    if logging {
+      println!("-> i = {}; f(xinit+{}*h) = {}; est = {}; df(xinit+{}*h) = {}; err = {}", i, i, f(xinit+fi*h), est, i, df(xinit+fi*h), (df(xinit+fi*h)-est).abs());
+    }
+  }
+  if logging {
+    println!("\ncentralfinitediff_known(): POST ITERATION RESULT: order = {}, h = {}, xinit = {}, est = {}; df(xinit) = {}; err = {}\n", order, h, xinit, est, df(xinit), (df(xinit)-est).abs());
+  }
+  est / f64::powf(h, ord as f64)
+}
+
+// Central Finite Difference for approximation of desired order (nth) derivative evaluated at some point xinit
+fn centralfinitediff(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut ord = order;
+  if order < 1 {
+    println!("\ncentralfinitediff(): Order is less than 1 (order = {}); defaulting to order = 1\n", order);
+    ord = 1;
+  }
+  let mut est = 0.0;
+  for i in 0..=ord {
+    let fi = i as f64;
+    let coef = lnfactorial(ord) / (lnfactorial(i) * lnfactorial(ord - i)).exp();
+    est += coef * f(xinit + fi * h / 2.0) * if i % 2 == 0 { 1.0 } else { -1.0 };
+    if logging {
+      println!("-> i = {}; f(xinit+{}*h/2) = {}; est = {}", i, i, f(xinit + fi * h / 2.0), est);
+    }
+  }
+  if logging {
+    println!("\ncentralfinitediff(): POST ITERATION RESULT: order = {}, h = {}, xinit = {}, est = {}\n", order, h, xinit, est);
+  }
+  est / f64::powf(h, ord as f64)
+}
+
+fn centralfinitediff_known(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, df: impl Fn(f64) -> f64, logging: bool) -> f64 {
+  let mut ord = order;
+  if order < 1 {
+    println!("\ncentralfinitediff_known(): Order is less than 1 (order = {}); defaulting to order = 1\n", order);
+    ord = 1;
+  }
+  let mut est = 0.0;
+  for i in 0..=ord {
+    let fi = i as f64;
+    let coef = lnfactorial(ord) / (lnfactorial(i) * lnfactorial(ord - i)).exp();
+    est += coef * f(xinit + fi * h / 2.0) * if i % 2 == 0 { 1.0 } else { -1.0 };
+    if logging {
+      println!("-> i = {}; f(xinit+{}*h/2) = {}; est = {}; df(xinit+{}*h/2) = {}; err = {}", i, i, f(xinit+fi*h/2.0), est, i, df(xinit+fi*h/2.0), (df(xinit+fi*h/2.0)-est).abs());
+    }
+  }
+  if logging {
+    println!("\ncentralfinitediff_known(): POST ITERATION RESULT: order = {}, h = {}, xinit = {}, est = {}; df(xinit) = {}; err = {}\n", order, h, xinit, est, df(xinit), (df(xinit)-est).abs());
+  }
+  est / f64::powf(h, ord as f64)
+}
+
+// Backwards Finite Difference for approximation of desired order (nth) derivative evaluated at some point xinit
 fn backfinitediff(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64, logging: bool) -> f64 {
   let mut ord = order;
   if order < 1 {
@@ -285,7 +356,7 @@ fn backfinitediff_known(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64
     }  
   }
   if logging {
-    print!("\nbackfinitediff_known(): \n");
+    print!("\nbackfinitediff_known(): POST ITERATION RESULT: order = {}, h = {}, xinit = {}, est = {}; df(xinit) = {}; err = {}\n", order, h, xinit, est, df(xinit), (df(xinit)-est).abs());
   }
   est / f64::powf(h, ord as f64)
 }
@@ -328,6 +399,12 @@ fn main() {
   let rkfe = rkfour_known(n, initval, tfinal , dydt, yt, false);
   println!("\n* Runge-Kutta (4) trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}; error = {}", rkf, rkfe, yt(tfinal), (yt(tfinal)).abs());
   let step = 0.01;
+  let ffd = forwardfinitediff(1, step, xinit, fx, false);
+  let ffde = forwardfinitediff_known(1, step, xinit, fx, dfdx, false);
+  println!("\n* Forward Finite Difference trials:\n\n > {} and {} (known); xinit = {}; Expected Solution = df(xinit) = {}; Error = {}\n", ffd, ffde, xinit, dfdx(xinit), (dfdx(xinit)-ffd).abs());
+  let cfd = centralfinitediff(1, step, xinit, fx, false);
+  let cfde = centralfinitediff_known(1, step, xinit, fx, dfdx, false);
+  println!("\n* Central Finite Difference trials:\n\n > {} and {} (known); xinit = {}; Expected Solution = df(xinit) = {}; Error = {}\n", cfd, cfde, xinit, dfdx(xinit), (dfdx(xinit)-cfd).abs());
   let bfd = backfinitediff(1, step, xinit, fx, false);
   let bfde = backfinitediff_known(1, step, xinit, fx, dfdx, false);
   println!("\n* Backwards Finite Difference trials:\n\n > {} and {} (known); xinit = {}; Expected Solution = df(xinit) = {}; Error = {}\n", bfd, bfde, xinit, dfdx(xinit), (dfdx(xinit)-bfd).abs());
