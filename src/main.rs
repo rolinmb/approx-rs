@@ -390,18 +390,62 @@ fn general_rungekutta(f: impl Fn(f64, f64) -> f64, y0: f64, mut t0: f64, tfinal:
   }
   y
 }
+
+/*fn general_rungekutta_adaptive( f: impl Fn(f64, Vec<f64>) -> Vec<f64>, y0: Vec<f64>, mut t0: f64, tfinal: f64, n: usize, tolerance: f64, tableau: &ButcherTableau) -> Vec<f64> {
+  let mut h = (tfinal - t0) / (n as f64);
+  let a = &tableau.a;
+  let b = &tableau.b;
+  let stages = tableau.stages;
+  let mut y = y0.clone();
+  while t0 < tfinal {
+    let t = t0 + h;
+    let mut k = vec![vec![0.0; y.len()]; stages];
+    let mut tempyi = y.clone();
+    for i in 0..stages {
+      let ti = t0 + a[i][0] * h;
+      for j in 1..stages {
+        let k_val = f(ti, tempyi.clone())[0];
+        k[i][j] = k_val;
+        tempyi = tempyi
+          .iter()
+          .zip(k[i].iter())
+          .map(|(y_val, k_val)| y_val + a[i][j] * h * k_val)
+          .collect();
+      }
+    }
+    let error: Vec<_> = b.iter().zip(k.iter()).map(|(bi, ki)| bi * ki[stages - 1]).collect();
+    let max_err = error.iter().map(|ei| ei.abs()).sum::<f64>();
+    let safety_fact = 0.9 * (tolerance / max_err).powf(1.0 / 5.0);
+    if max_err > tolerance {
+      h *= safety_fact;
+    } else {
+      y = y
+        .iter()
+        .zip(b.iter().map(|bi| h * bi))
+        .zip(k.iter())
+        .map(|((y_val, hbi), ki)| y_val + hbi * ki[stages - 1])
+        .collect();
+      t0 = t;
+    }
+  }
+  y
+}*/
+
 /*END CHATGPT
 Example ODE / IVP Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(t0 = 0.0) = 0.0
   -> the exact solution to this ODE/IVP is y(t) = e^(-t) * sin(2t)
 */
 fn main() {
-  let n = 1000000; // h (step size) = (tfinal - t0) / n
+  let n = 100000; // h (step size) = (tfinal - t0) / n
   let initval = 0.0;
   let tfinal = 1.0;
   let tolerance = 1e-10;
   println!("\nmain(): n = {}; initval = {}; tfinal = {}; tolerance = {}", n, initval, tfinal, tolerance);
   let dydt = |t: f64, y: f64| -> f64 {
     (-1.0*y) + (2.0*(-1.0*t).exp() * (2.0*t).cos())
+  };
+  let dydt_adaptive = |t: f64, y:Vec<f64>| -> Vec<f64> {
+    vec![(-1.0 * y[0]) + (2.0 * (-1.0 * t).exp() * (2.0 * t).cos())]
   };
   let yt = |t: f64| -> f64 {
     (-1.0*t).exp() * (2.0*t).sin()
@@ -452,7 +496,9 @@ fn main() {
   let tstart = 0.0;
   let mut yresult = general_rungekutta(dydt, initval, tstart, tfinal, n, &tableau_rk4);
   println!("\n* general_rungekutta (4):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult, yt(tfinal), (yt(tfinal) - yresult).abs());
-  let tableau_dp = ButcherTableau {
+  /*let mut yresult_adaptive = general_rungekutta_adaptive(dydt_adaptive, vec![initval], tstart, tfinal, n , tolerance, &tableau_rk4);
+  println!("\n* general_rungekutta_adaptive (4):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult_adaptive[0], yt(tfinal), (yt(tfinal) - yresult_adaptive[0]).abs());*/
+  let mut tableau_dp = ButcherTableau {
     a: vec![
       vec![0.0, 0.0, 0.0, 0.0, 0.0],
       vec![0.2, 0.0, 0.0, 0.0, 0.0],
@@ -466,4 +512,11 @@ fn main() {
   };
   yresult = general_rungekutta(dydt, initval, tstart, tfinal, n, &tableau_dp);
   println!("\n* general_rungekutta (Dormand-Prince):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult, yt(tfinal), (yt(tfinal) - yresult).abs());
+  /*tableau_dp = ButcherTableau {
+    a: tableau_dp.a,
+    b: tableau_dp.b,
+    stages: 6,
+  };
+  yresult_adaptive = general_rungekutta_adaptive(dydt_adaptive, vec![initval], tstart, tfinal, n, tolerance, &tableau_dp);
+  println!("\n* general_rungekutta_adaptive (Dormand-Prince):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult_adaptive[0], yt(tfinal), (yt(tfinal) - yresult_adaptive[0]).abs());*/
 }
