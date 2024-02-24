@@ -166,7 +166,7 @@ fn modifiedeuler_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f
 }
 //Runge-Kutta Method(s): given a function f(t,y) = y'(t) for some unknown y(t) and y(tstart) = initval,
 //we can approximate y(t) with even greater precision by 'modifying' the euler method further
-fn rkfour(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
+/*fn rkfour(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> f64, logging: bool) -> f64 {
   let h = tfinal/(n as f64);
   let mut tn: Vec<f64> = vec![0.0; n];
   let mut yn: Vec<f64> = vec![0.0; n];
@@ -221,7 +221,7 @@ fn rkfour_known(n: usize, initval: f64, tfinal: f64, dydt: impl Fn(f64, f64) -> 
     println!("rkfour_known(): POST ITERATION RESULT: h = {}; tn[{}] = {}; yn[{}] = {}; sln[{}] = {}; err[{}] = {}",  h, n-1, tn[n-1], n-1, yn[n-1], n-1, sln[n-1], n-1, err[n-1]);
   }
   yn[n-1]
-}
+}*/
 
 fn lnfactorial(n: usize) -> f64 {
 	if n == 0 { return 0.0; }
@@ -360,6 +360,37 @@ fn backfinitediff_known(order: usize, h: f64, xinit: f64, f: impl Fn(f64) -> f64
   }
   est / f64::powf(h, ord as f64)
 }
+// START CHATGPT
+struct ButcherTableau {
+  a: Vec<Vec<f64>>,
+  b: Vec<f64>,
+  stages: usize,
+}
+
+fn general_rungekutta(f: impl Fn(f64, f64) -> f64, y0: f64, mut t0: f64, tfinal: f64, n: usize, tableau: &ButcherTableau) -> f64 {
+  let h = (tfinal - t0) / (n as f64);
+  let a = &tableau.a;
+  let b = &tableau.b;
+  let stages = tableau.stages;
+  let mut y = y0;
+  for _ in 0..n {
+    let t = t0 + h;
+    let mut k = 0.0;
+    for i in 0..stages {
+      let ti = t0 + a[i][0] * h;
+      let yi = y;
+      let mut tempyi = yi;
+      for j in 1..stages {
+        tempyi = tempyi + a[i][j] * h * k;
+      }
+      k = f(ti, tempyi);
+    }
+    y = y + h * b.iter().zip(std::iter::repeat(k)).map(|(bi, ki)| bi * ki).sum::<f64>();
+    t0 = t;
+  }
+  y
+}
+//END CHATGPT
 
 fn main() {
   // Example Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(0) = 0
@@ -395,9 +426,9 @@ fn main() {
   let be = backwardeuler(n, initval, tfinal, n, tolerance, dydt, false);
   let bek = backwardeuler_known(n, initval, tfinal, n, tolerance, dydt, yt, false);
   println!("* Forward Euler Method trials:\n\n > {} and {} (known)\n\n* Backward Euler Method trials:\n\n > {} and {} (known)\n\n* Modified Euler Method trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}", fe, fek, be, bek, me, mek, yt(tfinal));
-  let rkf = rkfour(n, initval, tfinal, dydt, false);
-  let rkfe = rkfour_known(n, initval, tfinal , dydt, yt, false);
-  println!("\n* Runge-Kutta (4) trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}; error = {}", rkf, rkfe, yt(tfinal), (yt(tfinal)).abs());
+  //let rkf = rkfour(n, initval, tfinal, dydt, false);
+  //let rkfe = rkfour_known(n, initval, tfinal , dydt, yt, false);
+  //println!("\n* Runge-Kutta (4) trials:\n\n > {} and {} (known)\n\n=> Expected Solution = {}; error = {}", rkf, rkfe, yt(tfinal), (yt(tfinal)).abs());
   let step = 0.01;
   let ffd = forwardfinitediff(1, step, xinit, fx, false);
   let ffde = forwardfinitediff_known(1, step, xinit, fx, dfdx, false);
@@ -408,4 +439,17 @@ fn main() {
   let bfd = backfinitediff(1, step, xinit, fx, false);
   let bfde = backfinitediff_known(1, step, xinit, fx, dfdx, false);
   println!("\n* Backwards Finite Difference trials:\n\n > {} and {} (known); xinit = {}; Expected Solution = df(xinit) = {}; Error = {}\n", bfd, bfde, xinit, dfdx(xinit), (dfdx(xinit)-bfd).abs());
+  let tableau_rk4 = ButcherTableau {
+    a: vec![
+      vec![0.0, 0.0, 0.0, 0.0],
+      vec![0.5, 0.0, 0.0, 0.0],
+      vec![0.0, 0.5, 0.0, 0.0],
+      vec![0.0, 0.0, 1.0, 0.0],
+    ],
+    b: vec![1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0],
+    stages: 4,
+  };
+  let t0 = 0.0;
+  let yresult = general_rungekutta(dydt, initval, t0, tfinal, n, &tableau_rk4);
+  println!("\n* general_rungekutta (4):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult, yt(tfinal), (yt(tfinal) - yresult).abs());
 }
