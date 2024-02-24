@@ -395,7 +395,7 @@ Example ODE / IVP Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(t0
   -> the exact solution to this ODE/IVP is y(t) = e^(-t) * sin(2t)
 */
 fn main() {
-  let n = 1000; // h (step size) = (tfinal - t0) / n
+  let n = 1000000; // h (step size) = (tfinal - t0) / n
   let initval = 0.0;
   let tfinal = 1.0;
   let tolerance = 1e-10;
@@ -449,7 +449,21 @@ fn main() {
     b: vec![1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0],
     stages: 4,
   };
-  let t0 = 0.0;
-  let yresult = general_rungekutta(dydt, initval, t0, tfinal, n, &tableau_rk4);
+  let tstart = 0.0;
+  let mut yresult = general_rungekutta(dydt, initval, tstart, tfinal, n, &tableau_rk4);
   println!("\n* general_rungekutta (4):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult, yt(tfinal), (yt(tfinal) - yresult).abs());
+  let tableau_dp = ButcherTableau {
+    a: vec![
+      vec![0.0, 0.0, 0.0, 0.0, 0.0],
+      vec![0.2, 0.0, 0.0, 0.0, 0.0],
+      vec![3.0 / 40.0, 9.0 / 40.0, 0.0, 0.0, 0.0],
+      vec![0.3, -0.9, 1.2, 0.0, 0.0],
+      vec![-11.0 / 54.0, 2.5, -70.0 / 27.0, 35.0 / 27.0, 0.0],
+      vec![1631.0 / 55296.0, 175.0 / 512.0, 575.0 / 13824.0, 44275.0 / 110592.0, 253.0 / 4096.0],
+    ],
+    b: vec![37.0 / 378.0, 0.0, 250.0 / 621.0, 125.0 / 594.0, 0.0, 512.0 / 1771.0],
+    stages: 5,
+  };
+  yresult = general_rungekutta(dydt, initval, tstart, tfinal, n, &tableau_dp);
+  println!("\n* general_rungekutta (Dormand-Prince):\n\n > Final value: {}; Expected Soultion = yt(tfinal) = {}; Error = {}", yresult, yt(tfinal), (yt(tfinal) - yresult).abs());
 }
