@@ -390,12 +390,12 @@ fn general_rungekutta(f: impl Fn(f64, f64) -> f64, y0: f64, mut t0: f64, tfinal:
   }
   y
 }
-//END CHATGPT
-
+/*END CHATGPT
+Example ODE / IVP Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(t0 = 0.0) = 0.0
+  -> the exact solution to this ODE/IVP is y(t) = e^(-t) * sin(2t)
+*/
 fn main() {
-  // Example Problem: f(t, y) = dy/dt = -y + (2e^(-t) * cos(2t)) where y(0) = 0
-  //  -> the exact solution to this ODE/IVP is y(t) = e^(-t) * sin(2t)
-  let n = 1000;
+  let n = 1000; // h (step size) = (tfinal - t0) / n
   let initval = 0.0;
   let tfinal = 1.0;
   let tolerance = 1e-10;
